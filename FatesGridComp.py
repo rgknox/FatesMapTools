@@ -1,6 +1,6 @@
 # =======================================================================================
 ##
-# For usage: $python acre_gridcomp.py -h
+# For usage: $python FatesGridComp.py -h
 #
 #
 #
@@ -30,6 +30,7 @@ import code  # For development: code.interact(local=locals())
 import time
 from scipy.io import netcdf
 from mpl_toolkits.basemap import Basemap
+from FatesMapFunctions import GetNCList
 
 # Some constants
 g_to_Mg = 1.0e-6
@@ -39,49 +40,48 @@ ylgn_seq_cmap=mpl.cm.get_cmap('YlGn')
 rdbu_div_cmap=mpl.cm.get_cmap('RdBu')
 
 def usage():
-     print('')
-     print('=======================================================================')
-     print('')
-     print(' python acre_gridcomp.py -h --plotmode --regressmode')
-     print('                         --test-hist-file=<path> --base-hist-file=<path>')
-     print('                         --test-name=<text> --base-name=<text>')
-     print('')
-     print('  This script is intended to diagnose the output of one or two gridded')
-     print('  runs, as a rapid pass/fail visual analysis of spatial ecosystem patterns')
-     print('  that have emerged over time.')
-     print('')
-     print('')
-     print(' -h --help ')
-     print('     print this help message')
-     print('')
-     print(' --regressmode')
-     print('     [Optional] logical switch, turns on regression tests')
-     print('     against a baseline. Requires user to also set --base-rest-pref')
-     print('     default is False')
-     print('')
-     print(' --eval-id=<id-string>')
-     print('     a string that gives a name, or some id-tag associated with the')
-     print('     evaluation being conducted. This will be used in output file naming.')
-     print('     Any spaces detected in string will be trimmed.')
-     print('')
-     print(' --test-hist-file=<path>')
-     print('     the full path to the history file of the test')
-     print('     version of output')
-     print('') 
-     print(' --base-hist-file=<path>')
-     print('     [Optional]  the full path to history file of a baseline')
-     print('     version of output')
-     print('') 
-     print(' --test-name=<text>')
-     print('     [Optional] a short descriptor for the test case that will be used')
-     print('     for labeling plots. The default for the test case is "test".')
-     print('')
-     print(' --base-name=<text>')
-     print('     [Optional] a short descriptor for the base case that will be used')
-     print('     for labeling plots. The default for the base case is "base".')
-     print('')
-     print('')
-     print('=======================================================================')
+	print('')
+	print('=======================================================================')
+	print('')
+	print(' python FatesGridComp.py -h --plotmode --regressmode')
+	print('                         --test-hist-file=<path> --base-hist-file=<path>')
+	print('                         --test-name=<text> --base-name=<text>')
+	print('')
+	print('  This script is intended to diagnose the output of one or two gridded')
+	print('  runs, as a rapid pass/fail visual analysis of spatial ecosystem patterns')
+	print('  that have emerged over time.')
+	print('')
+	print('')
+	print(' -h --help ')
+	print('     print this help message')
+	print('')
+	print(' --regressmode')
+	print('     [Optional] logical switch, turns on regression tests')
+	print('     against a baseline. Requires user to also set --base-rest-pref')
+	print('     default is False')
+	print('')
+	print(' --eval-id=<id-string>')
+	print('     a string that gives a name, or some id-tag associated with the')
+	print('     evaluation being conducted. This will be used in output file naming.')
+	print('     Any spaces detected in string will be trimmed.')
+	print('')
+	print(' --test-hist-pref=<path>')
+	print('     the full path to the test history folder and file prefix')
+	print('     version of output')
+	print(' --base-hist-pref=<path>')
+	print('     the full path to the base history folder and file prefix')
+	print('     version of output')
+	print('')
+	print(' --test-name=<text>')
+	print('     [Optional] a short descriptor for the test case that will be used')
+	print('     for labeling plots. The default for the test case is "test".')
+	print('')
+	print(' --base-name=<text>')
+	print('     [Optional] a short descriptor for the base case that will be used')
+	print('     for labeling plots. The default for the base case is "base".')
+	print('')
+	print('')
+	print('=======================================================================')
 
 
 # ========================================================================================
@@ -101,48 +101,48 @@ def usage():
 
 def interp_args(argv):
 
-    argv.pop(0)  # The script itself is the first argument, forget it
+	argv.pop(0)  # The script itself is the first argument, forget it
 
     ## Binary flag that turns on and off regression tests against a baseline run
-    regressionmode = False
-    ## history file from the test simulation
-    test_h_file = ''
-    ## history file from the base simulation
-    base_h_file = ''
-    ## Name of the evaluation being performed, this is non-optional
-    eval_id = ''
-    ## Name for plot labeling of the test case
-    test_name = 'test'
-    ## Name for plot labeling of the base case
-    base_name = 'base'
-
+	regressionmode = False
+	## history file from the test simulation
+	test_h_pref = ''
+	## history file from the base simulation
+	base_h_pref = ''
+	## Name of the evaluation being performed, this is non-optional
+	eval_id = ''
+	## Name for plot labeling of the test case
+	test_name = 'test'
+	## Name for plot labeling of the base case
+	base_name = 'base'
+	
     try:
         opts, args = getopt.getopt(argv, 'h',["help","regressmode",     \
                                               "eval-id=",            \
-                                              "test-hist-file=","base-hist-file=", \
+                                              "test-hist-pref=","base-hist-pref=", \
                                               "test-name=","base-name="])
-
-    except getopt.GetoptError as err:
-        print('Argument error, see usage')
-        usage()
-        sys.exit(2)
-
-    for o, a in opts:
-        if o in ("-h", "--help"):
+		
+	except getopt.GetoptError as err:
+		print('Argument error, see usage')
+		usage()
+		sys.exit(2)
+		
+	for o, a in opts:
+		if o in ("-h", "--help"):
             usage()
             sys.exit(0)
         elif o in ("--regressmode"):
             regressionmode = True
         elif o in ("--eval-id"):
             eval_id = a
-        elif o in ("--test-hist-file"):
-            test_h_file = a
-        elif o in ("--base-hist-file"):
-            base_h_file = a
+        elif o in ("--test-hist-pref"):
+            test_h_pref = a
+        elif o in ("--base-hist-pref"):
+            base_h_pref = a
         elif o in ("--test-name"):
             test_name = a
-        elif o in ("--base-name"):
-            base_name = a
+		elif o in ("--base-name"):
+			base_name = a
         else:
             assert False, "unhandled option"
 
@@ -156,7 +156,7 @@ def interp_args(argv):
     else:
         print('Regression Testing is OFF')
 
-    if(test_h_file==''):
+    if(test_h_pref==''):
         print('A path to history files is required input, see usage:')
         usage()
         sys.exit(2)
@@ -170,7 +170,7 @@ def interp_args(argv):
     eval_id.replace(" ","")
         
 
-    return (regressionmode, eval_id, test_h_file, base_h_file, test_name, base_name)
+    return (regressionmode, eval_id, test_h_pref, base_h_pref, test_name, base_name)
 
 
 # ========================================================================================
@@ -181,27 +181,58 @@ def interp_args(argv):
 
 def main(argv):
 
+	# -----------------------------------------------------------------------------------
     # Interpret the arguments to the script
-    regressionmode, eval_id, test_h_file, base_h_file, test_name, base_name = interp_args(argv)
+	# -----------------------------------------------------------------------------------
 
-    # Close all figures
+    regressionmode, eval_id, test_h_pref, base_h_pref, test_name, base_name = interp_args(argv)
+
+
+	# Close all figures
     plt.close('all')    
-
     plotfile_name = eval_id+"_mapplots.pdf"
     pdf = PdfPages(plotfile_name)
 
-    # Load up a file to retrieve dimension info (fptest = file pointer test)
-    fptest = netcdf.netcdf_file(test_h_file, 'r', mmap=False)
 
-    if(regressionmode):
-         fpbase = netcdf.netcdf_file(base_h_file, 'r', mmap=False)
-         delta_str = 'Delta ({})-({})'.format(test_name.strip(),base_name.strip())
+	# -----------------------------------------------------------------------------------
+	# Get a list of files from the test and the base, and load up 
+	# some coordinate data from the 1st file
+	# -----------------------------------------------------------------------------------
+
+	test_h0_list = GetnNCList(test_h_pref,'h0')
+
+	# This string is used for plot titles and text
+	delta_str = 'Delta ({})-({})'.format(test_name.strip(),base_name.strip())
     
     # Load up the coordinate data
-    latvec_in = fptest.variables['lat'].data;
-    lonvec_in = fptest.variables['lon'].data;
-    
+	fp_coords = netcdf.netcdf_file(test_h0_list[0], 'r', mmap=False)
+	latvec_in = fp_coords.variables['lat'].data;
+    lonvec_in = fp_coords.variables['lon'].data;
+
+	# Load up the list of base files if using regression mode
+	# Test to see if the number of files and the coordinates
+	# are consistent with the test list
+    if(regressionmode):
+		base_h0_list = GetNCList(base_h_pref,'h0')
+		if(len(test_h0_list) /= len(base_h0_list)):
+			print('Number of history files in the test and base are different')
+			print('num test: {}'.format(len(test_h0_list))
+			print('num base: {}'.format(len(base_h0_list))
+			sys.exit(2)
+		# Check to see if coordinates are the same
+		fp_base_coords = netcdf.netcdf_file(test_h0_list[0], 'r', mmap=False)
+		latvec_base = fp_base_coords.variables['lat'].data;
+		if(abs(np.sum(latvec_in)-np.sum(latvec_base))>0.1):
+			print('The latitudes of the test and base dont match')
+			sys.exit(2)
+		fp_base_coords.close()
+
+	# -----------------------------------------------------------------------------------
+	# Go clean up the coordinate array, do things like cut off the top
+	# indices and create vertices for plotting.  
     # Change coordinate system and create a re-order index array
+	# -----------------------------------------------------------------------------------
+
     posids = np.where(lonvec_in>180.0)
     lonvec_in[posids] = -360.0+lonvec_in[posids]
     
@@ -236,8 +267,20 @@ def main(argv):
     # Save the ocean-ids
     ocean_ids = np.where(landfrac>1.0)
 
-    
     landfrac[ocean_ids]=np.nan
+
+	code.interact(local=dict(globals(), **locals())) 
+
+	# -----------------------------------------------------------------------------------
+	# Initialize the variables of interest (allocate and zero) then
+	# loop through the file lists, loading data and fitting it into the averaging arrays
+	# -----------------------------------------------------------------------------------
+
+	tot_biomass_test = np.transpose(fptest.variables['ED_biomass'].data[0,1:-1,sort_ids])
+
+#	atime=0
+#	for ifile in range(0,len(h0_list)):
+
 
     #float PFTbiomass(time, fates_levpft, lat, lon) ;
     #	float PFTleafbiomass(time, fates_levpft, lat, lon) ;

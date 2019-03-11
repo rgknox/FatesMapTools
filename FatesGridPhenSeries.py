@@ -18,7 +18,7 @@ import numpy as np
 import sys
 import getopt
 import code  # For development: code.interact(local=dict(globals(), **locals())) 
-from FatesMapFunctions import map_type, map_plot_type, map_plot_title_type, PlotMaps
+from FatesMapFunctions import map_type, map_plot_type, map_plot_title_type, PlotMaps, GetNCList
 from scipy.io import netcdf
 from mpl_toolkits.basemap import Basemap
 
@@ -128,32 +128,6 @@ def interp_args(argv):
 
 # =======================================================================================
 
-## get a list of files given a directory prefix and specification on the type
-# @param file_prefix a string with the full or relative path to the data
-# @return filelist a list of strings, each of which a file
-
-def getnclist(file_prefix,filetype):
-
-	from os.path import isfile, join 
-	from os import listdir
-
-	def FindChar(s, ch):
-		return [i for i, char in enumerate(s) if char == ch]
-
-	slashpos = FindChar(file_prefix,'/')
-
-	if(len(slashpos)==0):
-		pathpref=file_prefix+'/'
-		filepref=''
-	else:
-		pathpref=file_prefix[:slashpos[-1]+1]
-		filepref=file_prefix[slashpos[-1]+1:]
-
-	filelist = sorted([pathpref+f for f in listdir(pathpref) \
-					   if ( isfile(join(pathpref, f)) & \
-							('.nc' in f ) & (filepref in f) ) ])
-
-	return(filelist)
 
 # ========================================================================================
 # ========================================================================================
@@ -181,7 +155,7 @@ def main(argv):
 
 	# Get a list of files
 	# -----------------------------------------------------------------------------------
-	h0_list = getnclist(test_h_pref,'h0')
+	h0_list = GetnNCList(test_h_pref,'h0')
 
 
 	# Load of the geographic coordinates and masks from the first file
