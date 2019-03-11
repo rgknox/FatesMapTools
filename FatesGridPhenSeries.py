@@ -31,7 +31,11 @@ m2_to_ha = 1.0e-4
 
 ylgn_seq_cmap=mpl.cm.get_cmap('YlGn')
 rdbu_div_cmap=mpl.cm.get_cmap('RdBu')
-wint_seq_cmap=mpl.cm.get_cmap('cool')
+cool_seq_cmap=mpl.cm.get_cmap('cool')
+blues_seq_cmap=mpl.cm.get_cmap('Blues')
+
+pnkgn_div_cmap=mpl.cm.get_cmap('PiYG')
+
 
 def usage():
 	print('')
@@ -200,6 +204,7 @@ def main(argv):
 	# are going to be the 4 corners of each cell, so we end up having
 	# one extra entry for each. Thus the longitudes end up with a size of
 	# +1, and the latitude end up with a size of -2+1=-1
+
 	nlat=latvec_in.size-1
 	nlon=lonvec_in.size+1
 
@@ -226,6 +231,9 @@ def main(argv):
 	fpcoord.close()
 
 	
+        # This checks to see if a file prefix was provided for saving images
+        # if it was, we don't show the plots and instead save the image (for speed)
+
 	if(len(save_pref)>0):
 		do_save = True
 	else:
@@ -246,6 +254,9 @@ def main(argv):
 		coldstat_raw[np.where(coldstat_raw>100.0)] = np.nan
 		gdd_raw = fpdata.variables['SITE_GDD'].data[:,1:-1,sort_ids]
 		gdd_raw[np.where(gdd_raw>1.e6)] = np.nan
+
+                # gdd_thesh = a + b exp(c*ncd)
+
 		ncolddays_raw = fpdata.variables['SITE_NCOLDDAYS'].data[:,1:-1,sort_ids]
 		ncolddays_raw[np.where(ncolddays_raw>1.e6)] = np.nan
 	
@@ -287,26 +298,26 @@ def main(argv):
 
 			outfile_name = "{}{}_{}.png".format(save_pref,eval_id,str(atime).zfill(4))
 			proj_type    = 'robin'
-			plot_title   = 'Phenology Diagnostics\n{} {}-{}'.format(int(yr),moname[int(mo)-1],int(dom))
+			plot_title   = ' Phenology \n Diagnostics\n {} {}-{}'.format(int(yr),moname[int(mo)-1],int(dom))
 
-			title_obj = map_plot_title_type(plot_title,0.25,0.4,14)
+			title_obj = map_plot_title_type(plot_title,0.25,0.55,14)
 			plot_obj  = map_plot_type(xv,yv,proj_type,outfile_name,do_save)
 
 			map_list = []
 
-			map1=map_type(coldstat_raw[itime,:,:], 'Cold Status', wint_seq_cmap, [0,1,2])
+			map1=map_type(coldstat_raw[itime,:,:], 'Cold Status', cool_seq_cmap, [0,1,2])
 			map_list.append(map1)
 			
-			map2=map_type(gdd_raw[itime,:,:], 'Growing Degree Days', ylgn_seq_cmap, [0.,100.])
+			map2=map_type(gdd_raw[itime,:,:], 'Growing Degree Days', ylgn_seq_cmap, [0.,500.])
 			map_list.append(map2)
 
-			map3=map_type(ncolddays_raw[itime,:,:], 'Number of Cold Days', ylgn_seq_cmap, [])
+			map3=map_type(ncolddays_raw[itime,:,:], 'Number of Cold Days', ylgn_seq_cmap, [0,10])
 			map_list.append(map3)
 
-			map4=map_type(dstat_raw[itime,:,:], 'Drought Status', wint_seq_cmap, [0,1,2,3])
+			map4=map_type(dstat_raw[itime,:,:], 'Drought Status', cool_seq_cmap, [0,1,2,3])
 			map_list.append(map4)
 			
-			map5=map_type(meanliqvol_raw[itime,:,:], 'Soil Water [m3/m3]', wint_seq_cmap, [])
+			map5=map_type(meanliqvol_raw[itime,:,:], 'Soil Water [m3/m3]',blues_seq_cmap, [0,0.5])
 			map_list.append(map5)
 			
 

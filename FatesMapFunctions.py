@@ -142,7 +142,10 @@ def PlotMaps(plot_obj, map_list, title_obj):
 					 cmap=map_list[imap].co_map,vmin=vrange[0],vmax=vrange[1])
 
 		# Add the colorbar
-		m.colorbar()
+                if(len(map_list[imap].var_range)>2):
+                        m.colorbar(ticks=map_list[imap].var_range)
+                else:
+                        m.colorbar()
 
 	if(plot_obj.do_save):
 		fig.savefig(plot_obj.outfile_name,dpi=150,frameon=False)
