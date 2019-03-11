@@ -15,6 +15,36 @@ import code  # For development: code.interact(local=dict(globals(), **locals()))
 from mpl_toolkits.basemap import Basemap
 
 
+# =======================================================================================
+
+## get a list of files given a directory prefix and specification on the type
+# @param file_prefix a string with the full or relative path to the data
+# @return filelist a list of strings, each of which a file
+
+def GetNCList(file_prefix,filetype):
+
+	from os.path import isfile, join 
+	from os import listdir
+
+	def FindChar(s, ch):
+		return [i for i, char in enumerate(s) if char == ch]
+
+	slashpos = FindChar(file_prefix,'/')
+
+	if(len(slashpos)==0):
+		pathpref=file_prefix+'/'
+		filepref=''
+	else:
+		pathpref=file_prefix[:slashpos[-1]+1]
+		filepref=file_prefix[slashpos[-1]+1:]
+
+	filelist = sorted([pathpref+f for f in listdir(pathpref) \
+					   if ( isfile(join(pathpref, f)) & \
+							('.nc' in f ) & (filepref in f) ) ])
+
+	return(filelist)
+
+
 # Define the map class.  These classes can be appended into a 
 # list in the map_plot_type class, or they can be used stand-alone
 
