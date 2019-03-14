@@ -228,3 +228,10 @@ def PlotMaps(plot_obj, map_list, title_obj):
 
 
 	plt.close(fig)
+
+def DiscreteCubeHelix(N):
+
+    base = plt.cm.get_cmap('cubehelix')
+    color_list = base(np.random.randint(0,high=255,size=N))
+    cmap_name = base.name + str(N)
+    return base.from_list(cmap_name, color_list, N)

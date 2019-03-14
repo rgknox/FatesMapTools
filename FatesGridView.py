@@ -31,7 +31,7 @@ import datetime
 from scipy.io import netcdf
 from mpl_toolkits.basemap import Basemap
 from FatesMapFunctions import map_type, map_plot_type, map_plot_title_type, PlotMaps, GetNCList
-from FatesMapFunctions import pdf_type,png_type
+from FatesMapFunctions import pdf_type,png_type,DiscreteCubeHelix
 
 # Some constants
 g_to_Mg = 1.0e-6
@@ -39,6 +39,7 @@ m2_to_ha = 1.0e-4
 
 ylgn_seq_cmap=mpl.cm.get_cmap('YlGn')
 rdbu_div_cmap=mpl.cm.get_cmap('RdBu')
+
 
 # Month string names
 moname  = ['Jan','Feb','Mar','Apr','May','Jun', \
@@ -285,12 +286,23 @@ def main(argv):
     # Required:
     # PFTbiomass
     # PFTleafbiomass
-
+    # fp_coords.variables['PFTleafbiomass'].shape
+    # (1, 14, 46, 72)
 
     # Use the Coordinate file to allocate space to variables of interest.
 
-    biomass_test = np.zeros(landfrac.shape)
+    biomass_test  = np.zeros(landfrac.shape)
     tlai_test     = np.zeros(landfrac.shape)
+
+    # THese arrays track the amount of leaf biomass per each PFT
+    numpft = fp_coords.variables['PFTleafbiomass'].shape[1]
+    pft_cmap = DiscreteCubeHelix(numpft)
+
+    pft_leaf_mass  = np.zeros([numpft,landfrac.shape[0],landfrac.shape[1]])
+    pft_leaf_index = np.nan*np.zeros(landfrac.shape)
+    pft_tot_mass   = np.zeros([numpft,landfrac.shape[0],landfrac.shape[1]])
+    pft_tot_index  = np.nan*np.zeros(landfrac.shape)
+
 
 
     atime=0
@@ -320,6 +332,13 @@ def main(argv):
 
             tlai_test = tlai_test +  np.transpose(fpdata.variables['TLAI'].data[itime,1:-1,sort_ids])
 
+
+            for ipft in range(0,numpft):
+                pft_leaf_mass[ipft,] = pft_leaf_mass[ipft,] + \
+                                       g_to_Mg / m2_to_ha *np.transpose(fpdata.variables['PFTleafbiomass'].data[itime,ipft,1:-1,sort_ids])
+                pft_tot_mass[ipft,]  = pft_tot_mass[ipft,] + \
+                                       g_to_Mg / m2_to_ha *np.transpose(fpdata.variables['PFTbiomass'].data[itime,ipft,1:-1,sort_ids])
+
             fpdata.close()
 
     biomass_test = biomass_test / float(atime)
@@ -327,6 +346,25 @@ def main(argv):
 
     tlai_test = tlai_test / float(atime)
     tlai_test[ocean_ids] = np.nan
+
+    #    code.interact(local=locals())
+
+    for ilnd in range(0,len(ocean_ids[0])):
+        pft_tot_mass[:,ocean_ids[0][ilnd],ocean_ids[1][ilnd]] = np.nan
+        pft_leaf_mass[:,ocean_ids[0][ilnd],ocean_ids[1][ilnd]] = np.nan
+
+    pft_leaf_mass = pft_leaf_mass / float(atime)
+    pft_tot_mass  = pft_tot_mass / float(atime)
+
+    # Determine which PFT had the largest biomass
+    for ilat in range(0,landfrac.shape[0]):
+        for ilon in range(0,landfrac.shape[1]):
+            if( ~np.isnan(landfrac[ilat,ilon]) and np.amax(pft_leaf_mass[:,ilat,ilon]) > 1.e-6 ):
+              maxid=np.argmax(pft_leaf_mass[:,ilat,ilon])
+              pft_leaf_index[ilat,ilon] = maxid+1
+            if( ~np.isnan(landfrac[ilat,ilon]) and np.amax(pft_tot_mass[:,ilat,ilon]) > 1.e-6 ):
+              maxid=np.argmax(pft_tot_mass[:,ilat,ilon])
+              pft_tot_index[ilat,ilon] = maxid+1
 
 
 
@@ -345,9 +383,26 @@ def main(argv):
     PlotMaps(plot_obj,map_list,title_obj)
 
     map_list = []
-    map2=map_type(tlai_test, 'LAI', ylgn_seq_cmap, [0.,6.])
+    map2=map_type(tlai_test, 'LAI', ylgn_seq_cmap, [])
     map_list.append(map2)
     PlotMaps(plot_obj,map_list,title_obj)
+
+    map_list = []
+    map3=map_type(pft_leaf_index, 'Dominant PFT by Leaf Biomass', pft_cmap, np.linspace(1,numpft,numpft))
+    map_list.append(map3)
+    PlotMaps(plot_obj,map_list,title_obj)
+
+    map_list = []
+    map4=map_type(pft_tot_index, 'Dominant PFT by Total Biomass', pft_cmap, np.linspace(1,numpft,numpft))
+    map_list.append(map4)
+    PlotMaps(plot_obj,map_list,title_obj)
+
+    for ipft in range(0,numpft):
+        map_list = []
+        map0=map_type(pft_tot_mass[ipft,], 'Total Biomass [MgC/ha], pft {}'.format(ipft+1),ylgn_seq_cmap, [])
+        map_list.append(map0)
+        PlotMaps(plot_obj,map_list,title_obj)
+
 
     # This is same as pdf.close()
     if(do_save):
