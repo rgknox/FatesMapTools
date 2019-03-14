@@ -17,8 +17,9 @@ from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
 import sys
 import getopt
-import code  # For development: code.interact(local=dict(globals(), **locals())) 
+import code  # For development: code.interact(local=dict(globals(), **locals()))
 from FatesMapFunctions import map_type, map_plot_type, map_plot_title_type, PlotMaps, GetNCList
+from FatesMapFunctions import png_type
 from scipy.io import netcdf
 from mpl_toolkits.basemap import Basemap
 
@@ -122,7 +123,7 @@ def interp_args(argv):
 
 	# Remove Whitespace in eval_id string
 	eval_id.replace(" ","")
-    
+
 	return (eval_id, test_h_pref, save_pref )
 
 
@@ -155,21 +156,21 @@ def main(argv):
 
 	# Get a list of files
 	# -----------------------------------------------------------------------------------
-	h0_list = GetnNCList(test_h_pref,'h0')
+	h0_list = GetNCList(test_h_pref,'h0')
 
 
 	# Load of the geographic coordinates and masks from the first file
 	# -----------------------------------------------------------------------------------
 	fpcoord = netcdf.netcdf_file(h0_list[0], 'r', mmap=False)
-    
+
 	# Load up the coordinate data
 	latvec_in = fpcoord.variables['lat'].data;
 	lonvec_in = fpcoord.variables['lon'].data;
-    
+
 	# Change coordinate system and create a re-order index array
 	posids = np.where(lonvec_in>180.0)
 	lonvec_in[posids] = -360.0+lonvec_in[posids]
-    
+
 	sort_ids=np.argsort(lonvec_in)
 	lonvec_in=lonvec_in[sort_ids]
 
@@ -204,7 +205,7 @@ def main(argv):
 
 	fpcoord.close()
 
-	
+
         # This checks to see if a file prefix was provided for saving images
         # if it was, we don't show the plots and instead save the image (for speed)
 
@@ -214,12 +215,12 @@ def main(argv):
 		do_save = False
 
 
-	#code.interact(local=dict(globals(), **locals())) 
+	#code.interact(local=dict(globals(), **locals()))
 	atime=0
 	for ifile in range(0,len(h0_list)):
 
 		fpdata = netcdf.netcdf_file(h0_list[ifile], 'r', mmap=False)
-				
+
 		# Load date information
 		mcdate_raw = fpdata.variables['mcdate'].data
 
@@ -233,7 +234,7 @@ def main(argv):
 
 		ncolddays_raw = fpdata.variables['SITE_NCOLDDAYS'].data[:,1:-1,sort_ids]
 		ncolddays_raw[np.where(ncolddays_raw>1.e6)] = np.nan
-	
+
 		# Load the drought flags and mean liquid volume used to set status
 
 		dstat_raw = fpdata.variables['SITE_DROUGHT_STATUS'].data[:,1:-1,sort_ids]
@@ -247,7 +248,7 @@ def main(argv):
 #		cleafoff_raw[np.where(cleafoff_raw>1.e6)] = np.nan
 #		cleafon_raw = fpdata.variables['SITE_DAYSINCE_COLDLEAFON'].data[:,1:-1,sort_ids]
 #		cleafon_raw[np.where(cleafon_raw>1.e6)] = np.nan
-		
+
 #		dleafoff_raw = fpdata.variables['SITE_DAYSINCE_DROUGHTLEAFOFF'].data[:,1:-1,sort_ids]
 #		dleafoff_raw[np.where(dleafoff_raw>1.e6)] = np.nan
 #		dleafon_raw = fpdata.variables['SITE_DAYSINCE_DROUGHTLEAFON'].data[:,1:-1,sort_ids]
@@ -275,13 +276,13 @@ def main(argv):
 			plot_title   = ' Phenology \n Diagnostics\n {} {}-{}'.format(int(yr),moname[int(mo)-1],int(dom))
 
 			title_obj = map_plot_title_type(plot_title,0.25,0.55,14)
-			plot_obj  = map_plot_type(xv,yv,proj_type,outfile_name,do_save)
+			plot_obj  = map_plot_type(xv,yv,proj_type,outfile_name,do_save,png_type,[])
 
 			map_list = []
 
 			map1=map_type(coldstat_raw[itime,:,:], 'Cold Status', cool_seq_cmap, [0,1,2])
 			map_list.append(map1)
-			
+
 			map2=map_type(gdd_raw[itime,:,:], 'Growing Degree Days', ylgn_seq_cmap, [0.,500.])
 			map_list.append(map2)
 
@@ -290,16 +291,16 @@ def main(argv):
 
 			map4=map_type(dstat_raw[itime,:,:], 'Drought Status', cool_seq_cmap, [0,1,2,3])
 			map_list.append(map4)
-			
+
 			map5=map_type(meanliqvol_raw[itime,:,:], 'Soil Water [m3/m3]',blues_seq_cmap, [0,0.5])
 			map_list.append(map5)
-			
+
 
 
 			PlotMaps(plot_obj,map_list,title_obj)
 
-			
-			
+
+
 
 #				map3 = ncolddays_raw[itime,:,:]
 #				map3[ocean_ids]=np.nan
@@ -332,17 +333,17 @@ def main(argv):
 #				map1_vrange = [0,1,2,3]
 #				SingleMapSave("{}{}".format('frames/dstatus',eval_id),atime,yr,moname[int(mo)-1],dom,xv,yv, \
 #							  map1, map1_title, map1_vrange, map1_cmap)
-                
+
 #			fpdata.close()
 
 
-   
+
 
 
 
 
 # =======================================================================================
 # This is the actual call to main
-   
+
 if __name__ == "__main__":
     main(sys.argv)

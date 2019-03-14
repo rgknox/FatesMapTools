@@ -11,9 +11,12 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
 import sys
-import code  # For development: code.interact(local=dict(globals(), **locals())) 
+import math
+import code  # For development: code.interact(local=dict(globals(), **locals()))
 from mpl_toolkits.basemap import Basemap
 
+pdf_type = 1
+png_type = 2
 
 # =======================================================================================
 
@@ -23,7 +26,7 @@ from mpl_toolkits.basemap import Basemap
 
 def GetNCList(file_prefix,filetype):
 
-	from os.path import isfile, join 
+	from os.path import isfile, join
 	from os import listdir
 
 	def FindChar(s, ch):
@@ -45,19 +48,19 @@ def GetNCList(file_prefix,filetype):
 	return(filelist)
 
 
-# Define the map class.  These classes can be appended into a 
+# Define the map class.  These classes can be appended into a
 # list in the map_plot_type class, or they can be used stand-alone
 
 class map_type:
 
 	def __init__(self,data,title,co_map,var_range):
 
-		self.data = data           # This should be a 2D rectilinear map 
+		self.data = data           # This should be a 2D rectilinear map
 		self.title = title         # This is the title of the plot on this axis
 		self.co_map = co_map       # This is the desired colormap
 		self.var_range = var_range # This is either the desired range (hi - low)
                                    # Or, if this has more than two entries
-                                   # it is the actual values to use in the 
+                                   # it is the actual values to use in the
                                    # colorbar
 
 class map_plot_title_type:
@@ -70,33 +73,39 @@ class map_plot_title_type:
 		self.fontsize  = fontsize
 
 
-# Define the plot class (holds the maps, must be the same grids)	
+# Define the plot class (holds the maps, must be the same grids)
 
 class map_plot_type:
 
 	# The constructor
 
-	def __init__(self,xv,yv,proj_type,outfile_name,do_save):
-		
+	def __init__(self,xv,yv,proj_type,outfile_name,do_save,save_type,save_obj):
+
 		self.xv = xv                     # The x grid coordinate
 		self.yv = yv                     # The y grid coordinate
 		self.proj_type = proj_type       # This is the string name of a projection
-                                         # that is found in basemap
+                                                 # that is found in basemap
 		self.outfile_name = outfile_name # The name of the output file
 		self.do_save      = do_save
+
+                # This is either an integer equal to png_type or pdf_type
+                self.save_type    = save_type
+
+                # This is just an empty list for
+                self.save_obj     = save_obj
 
 
 # Call the plotting functions
 def PlotMaps(plot_obj, map_list, title_obj):
 
 	fig = plt.figure()
-		
+
 	# Determine the number of axes in this plot
 
 	nplots = len(map_list)
 
-	# If the plot title is not blank, we will add this to the 
-	
+	# If the plot title is not blank, we will add this to the
+
 	if(len(title_obj.title_str)>0):
 		npanels = nplots+1
 		title_pan = True
@@ -131,8 +140,22 @@ def PlotMaps(plot_obj, map_list, title_obj):
 		txt.set_clip_on(True)
 		ax.axis('off')
 
-	
-	
+        # Add meridion lines. If a single plot, use dx 20
+        # If more than 1, use dx of 30
+
+        if(nplots==1):
+                dpar = 20.0
+                dmer = 20.0
+        else:
+                dpar = 30.0
+                dmer = 30.0
+
+
+        nmer = math.floor(360.0/dmer)
+        npar = math.floor(180.0/dpar)
+        meridians = np.linspace(-180+0.5*(180.0-(nmer*dmer)),180-0.5*(180.0-(nmer*dmer)),nmer+1)
+        parallels = np.linspace(-90+0.5*(90.0-(npar*dpar)),90-0.5*(90.0-(npar*dpar)),npar+1)
+
 
 	for imap in range(0,nplots):
 
@@ -152,7 +175,7 @@ def PlotMaps(plot_obj, map_list, title_obj):
 			vrange = map_list[imap].var_range
 		elif(len(map_list[imap].var_range)>2):
 			vrange= [map_list[imap].var_range[0], map_list[imap].var_range[-1]]
-		
+
 
 		# Generate the axis
 		ax = fig.add_subplot(ax_code+ax_id)
@@ -161,11 +184,25 @@ def PlotMaps(plot_obj, map_list, title_obj):
 		ax.set_title(map_list[imap].title)
 
 		# Write the map and setup the projection
-		m = Basemap(projection=plot_obj.proj_type,lon_0=0,resolution='c')
+                if(plot_obj.proj_type=='robin'):
+                        m = Basemap(projection=plot_obj.proj_type,lon_0=0,resolution='c')
+                elif(plot_obj.proj_type=='cyl'):
+                        m = Basemap(projection=plot_obj.proj_type)
+                else:
+                        print('An unsupported projection was passed')
+                        print('FatesMapFunctions.PlotMaps')
+                        print('Valid options: robin,cyl ')
+                        sys.exit(2)
+
 		xmap,ymap = m(plot_obj.xv,plot_obj.yv)
-		
+
 		# Add some coastlines
 		m.drawcoastlines()
+
+
+
+                m.drawparallels(parallels,labels=[False,False,False,False])
+                m.drawmeridians(meridians,labels=[False,False,False,False])
 
 		# Add the data
 		m.pcolormesh(xmap,ymap,np.ma.masked_invalid(map_list[imap].data), \
@@ -177,14 +214,17 @@ def PlotMaps(plot_obj, map_list, title_obj):
                 else:
                         m.colorbar()
 
+
 	if(plot_obj.do_save):
-		fig.savefig(plot_obj.outfile_name,dpi=150,frameon=False)
+                if(plot_obj.save_type == png_type):
+                        fig.savefig(plot_obj.outfile_name,dpi=150,frameon=False)
+                elif(plot_obj.save_type == pdf_type):
+                        plot_obj.save_obj.savefig(fig)
+                else:
+                        print('Unknown save type')
+                        exit(2)
 	else:
 		plt.show()
-		
+
 
 	plt.close(fig)
-#	code.interact(local=dict(globals(), **locals())) 
-
-
-
