@@ -151,7 +151,7 @@ def interp_args(argv):
 
     if(regressionmode):
         print('Regression Testing is ON')
-        if(base_h_file==''):
+        if(base_h_pref==''):
             print('In a regression style comparison, you must specify a')
             print('path to baseline history files. See usage:')
             usage()
@@ -291,24 +291,36 @@ def main(argv):
 
     # Use the Coordinate file to allocate space to variables of interest.
 
-    biomass_test  = np.zeros(landfrac.shape)
-    tlai_test     = np.zeros(landfrac.shape)
+
 
     # THese arrays track the amount of leaf biomass per each PFT
     numpft = fp_coords.variables['PFTleafbiomass'].shape[1]
     pft_cmap = DiscreteCubeHelix(numpft)
 
-    pft_leaf_mass  = np.zeros([numpft,landfrac.shape[0],landfrac.shape[1]])
-    pft_leaf_index = np.nan*np.zeros(landfrac.shape)
-    pft_tot_mass   = np.zeros([numpft,landfrac.shape[0],landfrac.shape[1]])
-    pft_tot_index  = np.nan*np.zeros(landfrac.shape)
 
+    biomass_test  = np.zeros(landfrac.shape)
+    tlai_test     = np.zeros(landfrac.shape)
+    pft_leafmass_test  = np.zeros([numpft,landfrac.shape[0],landfrac.shape[1]])
+    pft_leafindex_test = np.nan*np.zeros(landfrac.shape)
+    pft_totmass_test   = np.zeros([numpft,landfrac.shape[0],landfrac.shape[1]])
+    pft_totindex_test  = np.nan*np.zeros(landfrac.shape)
+
+    if(regressionmode):
+        biomass_base  = np.zeros(landfrac.shape)
+        tlai_base     = np.zeros(landfrac.shape)
+        pft_leafmass_base  = np.zeros([numpft,landfrac.shape[0],landfrac.shape[1]])
+        pft_leafindex_base = np.nan*np.zeros(landfrac.shape)
+        pft_totmass_base   = np.zeros([numpft,landfrac.shape[0],landfrac.shape[1]])
+        pft_totindex_base  = np.nan*np.zeros(landfrac.shape)
 
 
     atime=0
     for ifile in range(0,len(test_h0_list)):
 
         fpdata = netcdf.netcdf_file(test_h0_list[ifile], 'r', mmap=False)
+
+        if(regressionmode):
+            fpdata_base = netcdf.netcdf_file(base_h0_list[ifile], 'r', mmap=False)
 
         # Load date information
         mcdate_raw = fpdata.variables['mcdate'].data
@@ -334,74 +346,158 @@ def main(argv):
 
 
             for ipft in range(0,numpft):
-                pft_leaf_mass[ipft,] = pft_leaf_mass[ipft,] + \
+                pft_leafmass_test[ipft,] = pft_leafmass_test[ipft,] + \
                                        g_to_Mg / m2_to_ha *np.transpose(fpdata.variables['PFTleafbiomass'].data[itime,ipft,1:-1,sort_ids])
-                pft_tot_mass[ipft,]  = pft_tot_mass[ipft,] + \
+                pft_totmass_test[ipft,]  = pft_totmass_test[ipft,] + \
                                        g_to_Mg / m2_to_ha *np.transpose(fpdata.variables['PFTbiomass'].data[itime,ipft,1:-1,sort_ids])
+
+            if(regressionmode):
+                biomass_base = biomass_base + g_to_Mg / m2_to_ha * \
+                               np.transpose(fpdata_base.variables['ED_biomass'].data[itime,1:-1,sort_ids])
+
+                tlai_base = tlai_base + \
+                            np.transpose(fpdata_base.variables['TLAI'].data[itime,1:-1,sort_ids])
+
+
+                for ipft in range(0,numpft):
+                    pft_leafmass_base[ipft,] = pft_leafmass_base[ipft,] + g_to_Mg / m2_to_ha * \
+                                               np.transpose(fpdata_base.variables['PFTleafbiomass'].data[itime,ipft,1:-1,sort_ids])
+                    pft_totmass_base[ipft,]  = pft_totmass_base[ipft,] + g_to_Mg / m2_to_ha * \
+                                               np.transpose(fpdata_base.variables['PFTbiomass'].data[itime,ipft,1:-1,sort_ids])
 
             fpdata.close()
 
+
     biomass_test = biomass_test / float(atime)
-    biomass_test[ocean_ids] = np.nan    # Set ocean-cells to nan
+    biomass_test[ocean_ids] = np.nan
 
     tlai_test = tlai_test / float(atime)
     tlai_test[ocean_ids] = np.nan
 
-    #    code.interact(local=locals())
-
     for ilnd in range(0,len(ocean_ids[0])):
-        pft_tot_mass[:,ocean_ids[0][ilnd],ocean_ids[1][ilnd]] = np.nan
-        pft_leaf_mass[:,ocean_ids[0][ilnd],ocean_ids[1][ilnd]] = np.nan
+        pft_totmass_test[:,ocean_ids[0][ilnd],ocean_ids[1][ilnd]] = np.nan
+        pft_leafmass_test[:,ocean_ids[0][ilnd],ocean_ids[1][ilnd]] = np.nan
 
-    pft_leaf_mass = pft_leaf_mass / float(atime)
-    pft_tot_mass  = pft_tot_mass / float(atime)
+    pft_leafmass_test = pft_leafmass_test / float(atime)
+    pft_totmass_test  = pft_totmass_test / float(atime)
 
     # Determine which PFT had the largest biomass
     for ilat in range(0,landfrac.shape[0]):
         for ilon in range(0,landfrac.shape[1]):
-            if( ~np.isnan(landfrac[ilat,ilon]) and np.amax(pft_leaf_mass[:,ilat,ilon]) > 1.e-6 ):
-              maxid=np.argmax(pft_leaf_mass[:,ilat,ilon])
-              pft_leaf_index[ilat,ilon] = maxid+1
-            if( ~np.isnan(landfrac[ilat,ilon]) and np.amax(pft_tot_mass[:,ilat,ilon]) > 1.e-6 ):
-              maxid=np.argmax(pft_tot_mass[:,ilat,ilon])
-              pft_tot_index[ilat,ilon] = maxid+1
+            if( ~np.isnan(landfrac[ilat,ilon]) and np.amax(pft_leafmass_test[:,ilat,ilon]) > 1.e-6 ):
+              maxid=np.argmax(pft_leafmass_test[:,ilat,ilon])
+              pft_leafindex_test[ilat,ilon] = maxid+1
+            if( ~np.isnan(landfrac[ilat,ilon]) and np.amax(pft_totmass_test[:,ilat,ilon]) > 1.e-6 ):
+              maxid=np.argmax(pft_totmass_test[:,ilat,ilon])
+              pft_totindex_test[ilat,ilon] = maxid+1
 
+    if(regressionmode):
 
+        biomass_base = biomass_base / float(atime)
+        biomass_base[ocean_ids] = np.nan
+
+        tlai_base = tlai_base / float(atime)
+        tlai_base[ocean_ids] = np.nan
+
+        for ilnd in range(0,len(ocean_ids[0])):
+            pft_totmass_base[:,ocean_ids[0][ilnd],ocean_ids[1][ilnd]] = np.nan
+            pft_leafmass_base[:,ocean_ids[0][ilnd],ocean_ids[1][ilnd]] = np.nan
+
+        pft_leafmass_base = pft_leafmass_base / float(atime)
+        pft_totmass_base  = pft_totmass_base / float(atime)
+
+        # Determine which PFT had the largest biomass
+        for ilat in range(0,landfrac.shape[0]):
+            for ilon in range(0,landfrac.shape[1]):
+                if( ~np.isnan(landfrac[ilat,ilon]) and np.amax(pft_leafmass_base[:,ilat,ilon]) > 1.e-6 ):
+                    maxid=np.argmax(pft_leafmass_base[:,ilat,ilon])
+                    pft_leafindex_base[ilat,ilon] = maxid+1
+                if( ~np.isnan(landfrac[ilat,ilon]) and np.amax(pft_totmass_base[:,ilat,ilon]) > 1.e-6 ):
+                    maxid=np.argmax(pft_totmass_base[:,ilat,ilon])
+                    pft_totindex_base[ilat,ilon] = maxid+1
 
     # Set up the plot objects
 
     proj_type    = 'robin'
     #    proj_type    = 'cyl'
-    plot_title   = ''
 
-    title_obj = map_plot_title_type(plot_title,0.25,0.55,14)
-    plot_obj  = map_plot_type(xv,yv,proj_type,outfile_name,do_save,pdf_type,pdf)
+    if(not regressionmode):
 
-    map_list = []
-    map1=map_type(biomass_test, 'Total Biomass [MgC/ha]', ylgn_seq_cmap, [])
-    map_list.append(map1)
-    PlotMaps(plot_obj,map_list,title_obj)
+        plot_title   = ''
 
-    map_list = []
-    map2=map_type(tlai_test, 'LAI', ylgn_seq_cmap, [])
-    map_list.append(map2)
-    PlotMaps(plot_obj,map_list,title_obj)
+        title_obj = map_plot_title_type(plot_title,0.25,0.55,14)
+        plot_obj  = map_plot_type(xv,yv,proj_type,outfile_name,do_save,pdf_type,pdf)
 
-    map_list = []
-    map3=map_type(pft_leaf_index, 'Dominant PFT by Leaf Biomass', pft_cmap, np.linspace(1,numpft,numpft))
-    map_list.append(map3)
-    PlotMaps(plot_obj,map_list,title_obj)
-
-    map_list = []
-    map4=map_type(pft_tot_index, 'Dominant PFT by Total Biomass', pft_cmap, np.linspace(1,numpft,numpft))
-    map_list.append(map4)
-    PlotMaps(plot_obj,map_list,title_obj)
-
-    for ipft in range(0,numpft):
         map_list = []
-        map0=map_type(pft_tot_mass[ipft,], 'Total Biomass [MgC/ha], pft {}'.format(ipft+1),ylgn_seq_cmap, [])
-        map_list.append(map0)
+        map1=map_type(biomass_test, 'Total Biomass [MgC/ha]', ylgn_seq_cmap, [])
+        map_list.append(map1)
         PlotMaps(plot_obj,map_list,title_obj)
+
+        map_list = []
+        map2=map_type(tlai_test, 'LAI', ylgn_seq_cmap, [])
+        map_list.append(map2)
+        PlotMaps(plot_obj,map_list,title_obj)
+
+        map_list = []
+        map3=map_type(pft_leafindex_test, 'Dominant PFT by Leaf Biomass', pft_cmap, np.linspace(1,numpft,numpft))
+        map_list.append(map3)
+        PlotMaps(plot_obj,map_list,title_obj)
+
+        map_list = []
+        map4=map_type(pft_totindex_test, 'Dominant PFT by Total Biomass', pft_cmap, np.linspace(1,numpft,numpft))
+        map_list.append(map4)
+        PlotMaps(plot_obj,map_list,title_obj)
+
+        for ipft in range(0,numpft):
+            map_list = []
+            map0=map_type(pft_totmass_test[ipft,], 'Total Biomass [MgC/ha], pft {}'.format(ipft+1),ylgn_seq_cmap, [])
+            map_list.append(map0)
+            PlotMaps(plot_obj,map_list,title_obj)
+
+    else:
+
+        plot_title   = ''
+        title_obj = map_plot_title_type(plot_title,0.25,0.55,14)
+        plot_obj  = map_plot_type(xv,yv,proj_type,outfile_name,do_save,pdf_type,pdf)
+        map_list = []
+        map1=map_type(biomass_base, 'Total Biomass [MgC/ha] (base)', ylgn_seq_cmap, [])
+        map_list.append(map1)
+        vmax = np.nanmax(np.abs(biomass_test-biomass_base))
+        map2=map_type(biomass_test-biomass_base, 'Bias (test-base)', rdbu_div_cmap, [-vmax,vmax])
+        map_list.append(map2)
+        PlotMaps(plot_obj,map_list,title_obj)
+
+        map_list = []
+        map1=map_type(tlai_base, 'LAI (base)', ylgn_seq_cmap, [])
+        map_list.append(map1)
+        vmax = np.nanmax(np.abs(tlai_test-tlai_base))
+        map2=map_type(tlai_test-tlai_base, 'Bias (test-base)', rdbu_div_cmap, [-vmax,vmax])
+        map_list.append(map2)
+        PlotMaps(plot_obj,map_list,title_obj)
+
+        map_list = []
+        map1=map_type(pft_leafindex_base, 'Dominant PFT by Leaf Biomass (base)', pft_cmap, np.linspace(1,numpft,numpft))
+        map_list.append(map1)
+        map2=map_type(pft_leafindex_test, 'Dominant PFT by Leaf Biomass (test)', pft_cmap, np.linspace(1,numpft,numpft))
+        map_list.append(map2)
+        PlotMaps(plot_obj,map_list,title_obj)
+
+        map_list = []
+        map1=map_type(pft_totindex_base, 'Dominant PFT by Total Biomass (base)', pft_cmap, np.linspace(1,numpft,numpft))
+        map_list.append(map1)
+        map2=map_type(pft_totindex_test, 'Dominant PFT by Total Biomass (test)', pft_cmap, np.linspace(1,numpft,numpft))
+        map_list.append(map2)
+        PlotMaps(plot_obj,map_list,title_obj)
+
+        for ipft in range(0,numpft):
+            map_list = []
+            map1=map_type(pft_totmass_base[ipft,], 'Total Biomass [MgC/ha], (base), pft {}'.format(ipft+1),ylgn_seq_cmap, [])
+            map_list.append(map1)
+            vmax = np.nanmax(np.abs(pft_totmass_test[ipft,]-pft_totmass_base[ipft,]))
+            map2=map_type(pft_totmass_test[ipft,]-pft_totmass_base[ipft,], 'Bias, (test-base), pft {}'.format(ipft+1),rdbu_div_cmap, [-vmax,vmax])
+            map_list.append(map2)
+            PlotMaps(plot_obj,map_list,title_obj)
+
 
 
     # This is same as pdf.close()

@@ -116,7 +116,7 @@ def PlotMaps(plot_obj, map_list, title_obj):
 	if(npanels==1):
 		ax_code = 110
 	elif(npanels==2):
-		ax_code = 120
+		ax_code = 210
 	elif(npanels<5):
 		ax_code = 220
 	elif(npanels<7):
